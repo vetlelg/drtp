@@ -2,47 +2,93 @@ from socket import *
 import argparse
 import ipaddress
 
-client_seq = 0
-server_seq = 0
+
+chunk_size = 994
+header_size = 6
 
 def server(ip, port, file):
     server_socket = socket(AF_INET, SOCK_DGRAM)
     server_socket.bind((ip, port))
-    data, addr = server_socket.recvfrom(6) # Receive SYN
+
+    # Establish connection. Three way handshake
+    data, addr = server_socket.recvfrom(header_size) # Receive SYN
     seq, ack, flags = header_from_bytes(data)
     if flags & 0x8: # Check SYN
-        server_socket.sendto(header_to_bytes(server_seq, seq+1, 0x6), addr) # Send SYN-ACK
-        data = server_socket.recvfrom(6)[0] # Receive ACK
+        print("SYN packet is received")
+        server_socket.sendto(header_to_bytes(0, seq+1, 0xC), addr) # Send SYN-ACK
+        print("SYN-ACK packet is sent")
+        data = server_socket.recvfrom(header_size)[0] # Receive ACK
         seq, ack, flags = header_from_bytes(data)
         if flags & 0x4: # Check ACK
+            print("ACK packet is received")
+
+            # Connection established. Start receiving data...
+            print("Connection established")
             with open(file, 'wb') as f:
                 while True:
-                    data = server_socket.recvfrom(1000)[0] # Receive data and FIN
+                    data = server_socket.recvfrom(header_size+chunk_size)[0] # Receive header and data
                     seq, ack, flags = header_from_bytes(data)
-                    if len(data) <= 6: # Check if there is any data
-                        if flags & 0x2: break # Check FIN
-                    else:
-                        f.write(data[6:])
-                        server_socket.sendto(header_to_bytes(ack, seq+1, 0x4), addr) # Send ACK
-    server_socket.close()
+                    if len(data) <= header_size: # Check if there is any data
+                        break
+                    f.write(data[header_size:])
+                    server_socket.sendto(header_to_bytes(ack, seq+chunk_size, 0x4), addr) # Send ACK
+                
+            # Terminate connection. Four way handshake
+            if flags & 0x6: # Check FIN-ACK
+                print("FIN packet is received")
+                server_socket.sendto(header_to_bytes(ack, seq+1, 0x4), addr) # Send ACK
+                print("ACK packet is sent")
+                server_socket.sendto(header_to_bytes(ack, seq+1, 0x6), addr) # Send FIN-ACK
+                print("FIN packet is sent")
+                data = server_socket.recvfrom(header_size)[0] # Receive ACK
+                seq, ack, flags = header_from_bytes(data)
+                if flags & 0x4:
+                    print("ACK packet is received")
+                    print("Connection closes")
+                    server_socket.close()
 
 def client(ip, port, file):
     client_socket = socket(AF_INET, SOCK_DGRAM)
-    client_socket.sendto(header_to_bytes(client_seq, 0, 0x8), (ip, port)) # Send SYN
-    data = client_socket.recvfrom(6)[0] # Receive SYN-ACK
+
+    # Establish connection. Three way handshake
+    client_socket.sendto(header_to_bytes(0, 0, 0x8), (ip, port)) # Send SYN
+    print("SYN packet is sent")
+    data = client_socket.recvfrom(header_size)[0] # Receive SYN-ACK
     seq, ack, flags = header_from_bytes(data)
-    if flags & 0x8 and flags & 0x4: # Check SYN-ACK
+    if flags & 0xC: # Check SYN-ACK
+        print("SYN-ACK packet is received")
         client_socket.sendto(header_to_bytes(ack, seq+1, 0x4), (ip, port)) # Send ACK
+        print("ACK packet is sent")
+
+        # Connection established. Start sending data...
+        print("Data Transfer:")
         with open(file, 'rb') as f:
-            data = f.read(994)
+            data = f.read(chunk_size)
             while data:
-                client_socket.sendto(header_to_bytes(ack, seq+1, 0x0) + data, (ip, port)) # Send data
-                data = client_socket.recvfrom(6)[0] # Receive ACK
+                client_socket.sendto(header_to_bytes(ack, seq+1, 0x4) + data, (ip, port)) # Send data
+                data = client_socket.recvfrom(header_size)[0] # Receive ACK
                 seq, ack, flags = header_from_bytes(data)
                 if flags & 0x4:
-                    data = f.read(994)
-    
-    client_socket.close()
+                    data = f.read(chunk_size)    
+        print("Data transfer finished")
+
+        # Terminate connection. Four way handshake
+        print("Connection Teardown:")
+        client_socket.sendto(header_to_bytes(ack, seq, 0x6)) # Send FIN-ACK
+        print("FIN packet is sent")
+        data = client_socket.recvfrom(header_size)[0] # Receive ACK
+        seq, ack, flags = header_from_bytes(data)
+        if flags & 0x4:
+            print("ACK packet is received")
+            data = client_socket.recvfrom(header_size)[0] # Receive FIN-ACK
+            print("FIN packet is received")
+            seq, ack, flags = header_from_bytes(data)
+            if flags & 0x6:
+                print("ACK packet is received")
+                client_socket.sendto(header_to_bytes(ack, seq+1, 0x4)) # Send ACK
+                print("Connection closes")
+                client_socket.close()
+
 
 def header_to_bytes(seq, ack, flags):
     return seq.to_bytes(2, 'big') + ack.to_bytes(2, 'big') + flags.to_bytes(2, 'big')
@@ -52,8 +98,6 @@ def header_from_bytes(data):
     ack = int.from_bytes(data[2:4], 'big')
     flags = int.from_bytes(data[4:6], 'big')
     return seq, ack, flags
-
-    
 
 
 def parse_arguments():
