@@ -74,7 +74,7 @@ def client(ip, port, file):
 
         # Terminate connection. Four way handshake
         print("Connection Teardown:")
-        client_socket.sendto(header_to_bytes(ack, seq, 0x6)) # Send FIN-ACK
+        client_socket.sendto(header_to_bytes(ack, seq, 0x6), (ip, port)) # Send FIN-ACK
         print("FIN packet is sent")
         data = client_socket.recvfrom(header_size)[0] # Receive ACK
         seq, ack, flags = header_from_bytes(data)
@@ -85,7 +85,7 @@ def client(ip, port, file):
             seq, ack, flags = header_from_bytes(data)
             if flags & 0x6:
                 print("ACK packet is received")
-                client_socket.sendto(header_to_bytes(ack, seq+1, 0x4)) # Send ACK
+                client_socket.sendto(header_to_bytes(ack, seq+1, 0x4), (ip, port)) # Send ACK
                 print("Connection closes")
                 client_socket.close()
 
