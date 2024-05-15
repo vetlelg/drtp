@@ -15,6 +15,7 @@ class DRTP():
         self.server_addr = server_addr
         self.file = file
         self.window = window
+        self.sliding_window = list(range(window*2))
 
     def create_packet(seq, ack, flags, data = b''):
         return seq.to_bytes(2, 'big') + ack.to_bytes(2, 'big') + flags.to_bytes(2, 'big') + data
@@ -24,15 +25,32 @@ class DRTP():
         ack = int.from_bytes(packet[2:4], 'big')
         return seq, ack
     
-    def send(self, window):
-        with open(self.file, 'rb') as f:
-            data = f.read(CHUNK_SIZE)
-            while data:
-                packet = self.create_packet(ack, seq+1, 4, data)
-                expected_packet = self.create_packet(seq+1, seq+1+CHUNK_SIZE, 4)
-                # Insert sending of data
-                seq, ack = self.extract_header(packet)
-                if expected_packet == packet: data = f.read(CHUNK_SIZE)
+    def send(self, data, window, addr):
+        while data:
+            segment = data[:CHUNK_SIZE*window]
+            data = data[CHUNK_SIZE*window:]
+            for i in range(window):
+                chunk = data[:CHUNK_SIZE]
+                data = data[CHUNK_SIZE:]
+                packet = self.create_packet(self.ack, self.seq+1, 4, chunk)
+                expected_packet = self.create_packet(seq+1, self.seq+1+len(chunk), 4)
+                socket.sendto(packet, addr)
+                try:
+                    packet = socket.recvfrom(HEADER_SIZE)[0]
+                    if packet == expected_packet:
+                        print("ACK packet received")
+                except socket.timeout:
+                    print("ACK not received in time. Retransmitting")
+                if not data: break
+            
+        # with open(self.file, 'rb') as f:
+        #     data = f.read(CHUNK_SIZE)
+        #     while data:
+        #         packet = self.create_packet(ack, seq+1, 4, data)
+        #         expected_packet = self.create_packet(seq+1, seq+1+CHUNK_SIZE, 4)
+        #         # Insert sending of data
+        #         seq, ack = self.extract_header(packet)
+        #         if expected_packet == packet: data = f.read(CHUNK_SIZE)
     
     def receive(self, window):
         with open(self.file, 'wb') as f:
@@ -93,6 +111,7 @@ class Server(DRTP):
             except socket.timeout:
                 print("Timeout. ACK packet not received in time")
                 continue
+
     def close_connection(self):
         self.socket.sendto(self.create_packet(ack, seq+1, 4), self.client_addr) # Send ACK
         print("ACK packet is sent")
