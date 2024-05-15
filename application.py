@@ -54,7 +54,6 @@ def server(ip, port, file):
             f.write(packet[HEADER_SIZE:])
             server_socket.sendto(create_packet(ack, seq+CHUNK_SIZE, 4), addr) # Send ACK
     
-    
     # Terminate connection. Four way handshake
     server_socket.sendto(create_packet(ack, seq+1, 4), addr) # Send ACK
     print("ACK packet is sent")
