@@ -26,14 +26,27 @@ class DRTP():
         return seq, ack
     
     def send(self, data, window, addr):
+        chunks = [data[i:i+window] for i in range(0, len(data), window)]
+        packets_in_flight, acked_packets = 0, 0
+        while acked_packets < len(chunks):
+            while packets_in_flight < window and acked_packets+packets_in_flight < len(chunks):
+                chunk = chunks[acked_packets+packets_in_flight]
+                socket.sendto(self.create_packet(self.ack, self.seq+1, 4, chunk), addr)
+                packets_in_flight += 1
+            try:
+                socket.recvfrom(HEADER_SIZE)[0]
+                acked_packets += 1
+                packets_in_flight -= 1
+            except socket.timeout:
+                packets_in_flight = 0
+
         while data:
             segment = data[:CHUNK_SIZE*window]
-            data = data[CHUNK_SIZE*window:]
+            i = 0
             for i in range(window):
-                chunk = data[:CHUNK_SIZE]
-                data = data[CHUNK_SIZE:]
+                chunk = segment[:CHUNK_SIZE]
                 packet = self.create_packet(self.ack, self.seq+1, 4, chunk)
-                expected_packet = self.create_packet(seq+1, self.seq+1+len(chunk), 4)
+                expected_packet = self.create_packet(self.seq+1, self.seq+1+len(chunk), 4)
                 socket.sendto(packet, addr)
                 try:
                     packet = socket.recvfrom(HEADER_SIZE)[0]
@@ -41,7 +54,6 @@ class DRTP():
                         print("ACK packet received")
                 except socket.timeout:
                     print("ACK not received in time. Retransmitting")
-                if not data: break
             
         # with open(self.file, 'rb') as f:
         #     data = f.read(CHUNK_SIZE)
