@@ -45,13 +45,80 @@ class DRTP():
             except timeout:
                 packets_in_flight = 0
     
-    def receive_data(self, window):
-        with open(self.file, 'wb') as f:
-            packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)[0] # Receive header and data
-            while len(packet) > HEADER_SIZE:
-                packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)[0] # Receive header and data
-                f.write(packet[HEADER_SIZE:])
-                self.sock.sendto(self.create_packet(self.ack, self.seq+CHUNK_SIZE, 4), self.client_addr) # Send ACK
+    def receive_data(self, addr):
+        data = b''
+        while True:
+            packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)
+            chunk = packet[HEADER_SIZE:]
+            seq, ack, flags = self.extract_header(packet)
+            if flags == 4 and self.seq == ack and self.ack == seq and chunk:
+                self.ack += CHUNK_SIZE
+                packet = self.create_packet(self.seq, self.ack, 4)
+                self.sock.sendto(packet, addr)
+                data += chunk
+            elif flags == 6 and self.seq == ack and self.ack == seq:
+                self.receiver_close_connection()
+                break
+        return data
+    
+    def close_connection(self):
+        packet = self.create_packet(self.seq, self.ack, 6)
+        while True:
+            self.sock.sendto(packet, self.server_addr)
+            print("FIN packet is sent")
+            try:        
+                packet = self.sock.recvfrom(HEADER_SIZE)[0]
+                seq, ack, flags = self.extract_header(packet)
+                if flags == 4 and ack == self.seq+1 and self.ack == seq:
+                    print("ACK packet is received")
+                    self.seq = ack
+                    break
+                else:
+                    break
+            except timeout:
+                print("ACK not received in time. Retransmitting packet")
+                continue
+        
+        while True:
+            packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive FIN-ACK
+            seq, ack, flags = self.extract_header(packet)
+            if flags == 6 and ack == self.seq and seq == self.ack:
+                print("FIN packet is received")
+                self.ack = seq+1
+                packet = self.create_packet(self.seq, self.ack, 4)
+                self.sock.sendto(packet, self.server_addr) # Send ACK
+                print("ACK packet is sent")
+                print("Connection closes")
+                self.sock.close()
+                break
+    
+    def receiver_close_connection(self):
+        print("FIN packet received")
+        self.ack = seq+1
+        packet = self.create_packet(self.seq, self.ack, 4)
+        self.sock.sendto(packet, self.client_addr) # Send ACK
+        print("ACK packet is sent")
+        print(f"seq={self.seq} ack={self.ack}")
+
+        while True:
+            packet = self.create_packet(self.seq, self.ack, 6)
+            self.sock.sendto(packet, self.client_addr) # Send FIN-ACK
+            print("FIN packet is sent")
+            print(f"seq={self.seq} ack={self.ack} flags={6}")
+            try:
+                packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive ACK
+                seq, ack, flags = self.extract_header(packet)
+                if flags == 4 and ack == self.seq+1 and self.ack == seq:
+                    print("ACK packet is received")
+                    self.seq = ack
+                    print("Connection closes")
+                    self.sock.close()
+                    break
+                else:
+                    break
+            except timeout:
+                print("Timeout. ACK packet not received in time")
+                continue    
         
 class Server(DRTP):
     def __init__(self, server_addr, file, window):
@@ -89,41 +156,7 @@ class Server(DRTP):
                 print("Timeout. ACK packet not received in time")
                 continue
 
-    def close_connection(self):
-        while True:
-            packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive FIN-ACK
-            seq, ack, flags = self.extract_header(packet)
-            if flags == 6 and ack == self.seq and seq == self.ack:
-                print("FIN packet is received")
-                self.ack = seq+1
-                break
-            else:
-                print("Not expected packet")
-        
-        packet = self.create_packet(self.seq, self.ack, 4)
-        self.sock.sendto(packet, self.client_addr) # Send ACK
-        print("ACK packet is sent")
-        print(f"seq={self.seq} ack={self.ack}")
-
-        while True:
-            packet = self.create_packet(self.seq, self.ack, 6)
-            self.sock.sendto(packet, self.client_addr) # Send FIN-ACK
-            print("FIN packet is sent")
-            print(f"seq={self.seq} ack={self.ack} flags={6}")
-            try:
-                packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive ACK
-                seq, ack, flags = self.extract_header(packet)
-                if flags == 4 and ack == self.seq+1 and self.ack == seq:
-                    print("ACK packet is received")
-                    self.seq = ack
-                    print("Connection closes")
-                    self.sock.close()
-                    break
-                else:
-                    break
-            except timeout:
-                print("Timeout. ACK packet not received in time")
-                continue
+    
 
 class Client(DRTP):
     def __init__(self, server_addr, file, window):
@@ -153,58 +186,22 @@ class Client(DRTP):
         print("ACK packet is sent")
         print(f"seq={self.seq} ack={self.ack}")
 
-    def close_connection(self):
-        packet = self.create_packet(self.seq, self.ack, 6)
-        while True:
-            self.sock.sendto(packet, self.server_addr)
-            print("FIN packet is sent")
-            print(f"seq={self.seq} ack={self.ack}")
-            try:        
-                packet = self.sock.recvfrom(HEADER_SIZE)[0]
-                seq, ack, flags = self.extract_header(packet)
-                if flags == 4 and ack == self.seq+1 and self.ack == seq:
-                    print("ACK packet is received")
-                    self.seq = ack
-                    break
-                else:
-                    break
-            except timeout:
-                print("ACK not received in time. Retransmitting packet")
-                continue
-        
-        while True:
-            packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive FIN-ACK
-            seq, ack, flags = self.extract_header(packet)
-            if flags == 6 and ack == self.seq and seq == self.ack:
-                print("FIN packet is received")
-                self.ack = seq+1
-                packet = self.create_packet(self.seq, self.ack, 4)
-                self.sock.sendto(packet, self.server_addr) # Send ACK
-                print("ACK packet is sent")
-                print("Connection closes")
-                self.sock.close()
-                break
-            else:
-                seq, ack, flags = self.extract_header(packet)
-                print(f"seq={seq} ack={ack} flags={flags}")
-                seq, ack, flags = self.extract_header(expected_packet)
-                print(f"seq={seq} ack={ack} flags={flags}")
+    
 
 def run_server(server_addr, file, window):
     server = Server(server_addr, file, window)
     server.listen()
     server.accept()
-    #data = server.receive_data()
-    #with open(file, 'wb') as f:
-    #    f.write()
-    server.close_connection()
+    data = server.receive_data()
+    with open(file, 'wb') as f:
+        f.write(data)
 
 def run_client(server_addr, file, window):
     client = Client(server_addr, file, window)
     client.connect()
-    #with open(file, 'rb') as f:
-    #    data = f.read()
-    #    client.send_data(data)
+    with open(file, 'rb') as f:
+        data = f.read()
+        client.send_data(data)
     client.close_connection()
 
 if __name__ == "__main__":
