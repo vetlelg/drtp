@@ -33,13 +33,13 @@ class DRTP():
             while packets_in_flight < window and acked_packets+packets_in_flight < len(chunks):
                 chunk = chunks[acked_packets+packets_in_flight]
                 packet = self.create_packet(self.seq, self.ack, 4, chunk)
-                expected_packet = self.create_packet(self.ack, self.seq+1+CHUNK_SIZE, 4)
                 socket.sendto(packet, addr)
                 packets_in_flight += 1
             try:
                 packet = socket.recvfrom(HEADER_SIZE)[0]
-                if packet == expected_packet:
-                    print("Received ACK")
+                seq, ack, flags = self.extract_header(packet)
+                if flags == 4 and self.ack == seq and self.seq+CHUNK_SIZE == ack:
+                    self.seq = ack
                     acked_packets += 1
                     packets_in_flight -= 1
             except timeout:
@@ -63,7 +63,7 @@ class Server(DRTP):
         # Wait for SYN from client
         while True:
             packet, self.client_addr = self.sock.recvfrom(HEADER_SIZE)
-            self.ack, self.seq, flags = self.extract_header(packet)
+            self.ack, _, flags = self.extract_header(packet)
             self.ack += 1
             # Check if received packet is a SYN packet
             if flags == 8:
@@ -79,10 +79,10 @@ class Server(DRTP):
             try:
                 # Wait for ACK from client
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
+                seq, ack, flags = self.extract_header(packet)
                 # Check if received packet is an ACK packet
-                expected_packet = self.create_packet(self.ack, self.seq+1, 4)
-                if packet == expected_packet:
-                    self.seq += 1
+                if flags == 4 and ack == self.seq+1 and self.ack == seq:
+                    self.seq = ack
                     print("ACK packet is received")
                     break
             except timeout:
@@ -90,32 +90,35 @@ class Server(DRTP):
                 continue
 
     def close_connection(self):
-        expected_packet = self.create_packet(self.ack, self.seq, 6)
         while True:
             packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive FIN-ACK
-            if packet == expected_packet:
+            seq, ack, flags = self.extract_header(packet)
+            if flags == 6 and ack == self.seq and seq == self.ack:
                 print("FIN packet is received")
-                self.ack += 1
-                packet = self.create_packet(self.seq, self.ack, 4)
-                self.sock.sendto(packet, self.client_addr) # Send ACK
-                print("ACK packet is sent")
-                print(f"seq={self.seq} ack={self.ack}")
+                self.ack = seq+1
                 break
             else:
                 print("Not expected packet")
+        
+        packet = self.create_packet(self.seq, self.ack, 4)
+        self.sock.sendto(packet, self.client_addr) # Send ACK
+        print("ACK packet is sent")
+        print(f"seq={self.seq} ack={self.ack}")
 
         while True:
             packet = self.create_packet(self.seq, self.ack, 6)
             self.sock.sendto(packet, self.client_addr) # Send FIN-ACK
             print("FIN packet is sent")
             print(f"seq={self.seq} ack={self.ack} flags={6}")
-            expected_packet = self.create_packet(self.ack, self.seq+1, 4)
             try:
                 packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive ACK
-                if packet == expected_packet:
+                seq, ack, flags = self.extract_header(packet)
+                if flags == 4 and ack == self.seq+1 and self.ack == seq:
                     print("ACK packet is received")
+                    self.seq = ack
                     print("Connection closes")
                     self.sock.close()
+                    break
                 else:
                     break
             except timeout:
@@ -136,9 +139,10 @@ class Client(DRTP):
             print("SYN packet is sent")
             try:
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
-                if packet == expected_packet:
+                seq, ack, flags = self.extract_header(packet)
+                if flags == 12 and ack == self.seq+1:
                     print("SYN-ACK packet is received")
-                    self.seq+=1
+                    self.ack, self.seq = seq+1, ack
                     break
             except timeout:
                 print("ACK not received in time. Retransmitting packet")
@@ -151,16 +155,16 @@ class Client(DRTP):
 
     def close_connection(self):
         packet = self.create_packet(self.seq, self.ack, 6)
-        expected_packet = self.create_packet(self.ack, self.seq+1, 4)
         while True:
             self.sock.sendto(packet, self.server_addr)
             print("FIN packet is sent")
             print(f"seq={self.seq} ack={self.ack}")
             try:        
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
-                if packet == expected_packet:
+                seq, ack, flags = self.extract_header(packet)
+                if flags == 4 and ack == self.seq+1 and self.ack == seq:
                     print("ACK packet is received")
-                    self.seq += 1
+                    self.seq = ack
                     break
                 else:
                     break
@@ -168,12 +172,12 @@ class Client(DRTP):
                 print("ACK not received in time. Retransmitting packet")
                 continue
         
-        expected_packet = self.create_packet(self.ack, self.seq, 6)
         while True:
             packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive FIN-ACK
-            if packet == expected_packet:
+            seq, ack, flags = self.extract_header(packet)
+            if flags == 6 and ack == self.seq and seq == self.ack:
                 print("FIN packet is received")
-                self.ack += 1
+                self.ack = seq+1
                 packet = self.create_packet(self.seq, self.ack, 4)
                 self.sock.sendto(packet, self.server_addr) # Send ACK
                 print("ACK packet is sent")
