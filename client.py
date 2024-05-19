@@ -10,12 +10,12 @@ class Client(Protocol):
         packet = self.create_packet(self.seq, self.ack, 8)
         while True:
             self.sock.sendto(packet, self.server_addr)
-            print("SYN packet is sent")
+            print("SYN packet sent")
             try:
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
                 seq, ack, flags = self.extract_header(packet)
                 if flags == 12 and ack == self.seq+1:
-                    print("SYN-ACK packet is received")
+                    print("SYN-ACK packet received")
                     self.ack, self.seq = seq+1, ack
                     break
             except timeout:
@@ -23,5 +23,4 @@ class Client(Protocol):
 
         packet = self.create_packet(self.seq, self.ack, 4)
         self.sock.sendto(packet, self.server_addr)
-        print("ACK packet is sent")
-        print(f"seq={self.seq} ack={self.ack}")
+        print("ACK packet sent")

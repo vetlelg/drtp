@@ -14,7 +14,7 @@ class Server(Protocol):
             self.ack += 1
             # Check if received packet is a SYN packet
             if flags == 8:
-                print("SYN packet is received")
+                print("SYN packet received")
                 break
     
     def accept(self):
@@ -22,15 +22,15 @@ class Server(Protocol):
         packet = self.create_packet(self.seq, self.ack, 12)
         while True:
             self.sock.sendto(packet, self.client_addr)
-            print("SYN-ACK packet is sent")
+            print("SYN-ACK packet sent")
             try:
                 # Wait for ACK from client
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
                 seq, ack, flags = self.extract_header(packet)
                 # Check if received packet is an ACK packet
                 if flags == 4 and ack == self.seq+1 and self.ack == seq:
+                    print("ACK packet received")
                     self.seq = ack
-                    print("ACK packet is received")
                     return self.client_addr
             except timeout:
                 print("Timeout. ACK packet not received in time")
