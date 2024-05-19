@@ -1,5 +1,6 @@
 from socket import *
 from datetime import datetime
+import time
 from collections import deque
 
 CHUNK_SIZE = 994
@@ -12,7 +13,11 @@ class Protocol():
         self.ack = 0
         self.sock = socket(AF_INET, SOCK_DGRAM)
         self.server_addr = server_addr
-    
+
+    def calculate_throughput(self, bytes, time_elapsed):
+                bits = len(bytes) * 8
+                bps = bits / time_elapsed
+                return round(bps / 1_000_000, 2)
 
     def create_packet(self, seq, ack, flags, chunk = b''):
         return seq.to_bytes(2, 'big') + ack.to_bytes(2, 'big') + flags.to_bytes(2, 'big') + chunk
@@ -50,10 +55,13 @@ class Protocol():
         print("Data transfer finished")
     
     def receive_data(self, addr, discard):
+        start_time = time.time()
         self.sock.settimeout(None)
         data = b''
+        bytes_received = b''
         while True:
             packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)[0]
+            bytes_received += packet
             chunk = packet[HEADER_SIZE:]
             seq, ack, flags = self.extract_header(packet)
             if seq == discard:
@@ -66,11 +74,14 @@ class Protocol():
                 print(f"{datetime.now().time()} -- ACK for packet with seq = {seq} sent")
                 data += chunk
             elif flags == 6 and self.seq == ack and self.ack == seq:
+                time_elapsed = time.time() - start_time
+                print(f"Throughput: {self.calculate_throughput(bytes_received, time_elapsed)} Mbps")
                 self.ack = seq+1
                 self.__receiver_close_connection()
                 break
             elif flags == 4:
                 print(f"{datetime.now().time()} -- out-of-order packet with seq = {seq} received")
+            
         return data
     
     def close_connection(self):
