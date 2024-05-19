@@ -12,11 +12,7 @@ class Protocol():
         self.ack = 0
         self.sock = socket(AF_INET, SOCK_DGRAM)
         self.server_addr = server_addr
-        self.sliding_window = []
     
-    def update_window(self, seq):
-        self.queue.append(self.seq)
-        if (len(self.queue) > window): self.q
 
     def create_packet(self, seq, ack, flags, chunk = b''):
         return seq.to_bytes(2, 'big') + ack.to_bytes(2, 'big') + flags.to_bytes(2, 'big') + chunk
@@ -28,6 +24,7 @@ class Protocol():
         return seq, ack, flags
 
     def send_data(self, data, window, addr):
+        print("Data transfer:")
         chunks = [data[i:i+CHUNK_SIZE] for i in range(0, len(data), CHUNK_SIZE)]
         packets_in_flight = 0
         sliding_window = deque()
@@ -50,6 +47,7 @@ class Protocol():
             except timeout:
                 print(f"Retransmission timeout. ACK not received.")
                 packets_in_flight = 0
+        print("Data transfer finished")
     
     def receive_data(self, addr, discard):
         self.sock.settimeout(None)
@@ -76,6 +74,7 @@ class Protocol():
         return data
     
     def close_connection(self):
+        print("Connection teardown. Four way handshake")
         packet = self.create_packet(self.seq, self.ack, 6)
         while True:
             self.sock.sendto(packet, self.server_addr)

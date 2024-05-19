@@ -8,27 +8,19 @@ def run_server(server_addr, file, window, discard=None):
     server.listen()
     client_addr = server.accept()
 
-    print("Connection established")
-
     data = server.receive_data(client_addr, discard)
     with open(file, 'wb') as f:
         f.write(data)
 
 def run_client(server_addr, file, window):
     client = Client(server_addr)
-
-    print("Establishing connection. Three way handshake")
+    
     client.connect()
-
-    print("Data transfer:")
 
     with open(file, 'rb') as f:
         data = f.read()
         client.send_data(data, window, server_addr)
 
-    print("Data transfer finished")
-
-    print("Connection teardown. Four way handshake")
     client.close_connection()
 
 if __name__ == "__main__":

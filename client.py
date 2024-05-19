@@ -6,6 +6,7 @@ class Client(Protocol):
         self.sock.settimeout(TIMEOUT)
     
     def connect(self):
+        print("Establishing connection. Three way handshake")
         # Send SYN packet to server and receive SYN-ACK packet from server
         packet = self.create_packet(self.seq, self.ack, 8)
         while True:

@@ -30,7 +30,9 @@ class Server(Protocol):
                 # Check if received packet is an ACK packet
                 if flags == 4 and ack == self.seq+1 and self.ack == seq:
                     print("ACK packet received")
+                    print("Connection established")
                     self.seq = ack
                     return self.client_addr
             except timeout:
-                print("Timeout. ACK packet not received in time")
+                print("Timeout. ACK packet not received.")
+            
