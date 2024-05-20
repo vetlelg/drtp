@@ -255,7 +255,6 @@ class Host():
 
                     # Update seq number of next expected in-order packet if the ACK was sent without errors
                     self.ack += 1 
-
                     
                     data += chunk
                 except Exception:
@@ -304,8 +303,8 @@ class Host():
         while True:
             try:
                 # Create and send FIN packet
-                self.sock.sendto(packet, self.server_addr)
                 packet = self.create_packet(self.seq, self.ack, 6)
+                self.sock.sendto(packet, self.server_addr)
                 print("FIN packet sent")     
                 # Receive packet and extract header
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
@@ -323,5 +322,5 @@ class Host():
             except timeout:
                 print("ACK not received in time. Resending FIN packet")   
             except Exception as e:
-                print(f"Unexpected error occurred during connection teardown.")
+                print(f"Unexpected error occurred during connection teardown")
                 raise
