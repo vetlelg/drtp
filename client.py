@@ -22,7 +22,7 @@ class Client(Protocol):
                     self.sock.sendto(packet, self.server_addr)
                     print("ACK packet sent")
             except timeout:
-                if self.seq == 1:
+                if self.seq == 0:
                     print("Connection failed. SYN-ACK not received in time.")
                     raise
                     
