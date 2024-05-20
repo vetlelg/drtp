@@ -29,7 +29,7 @@ class Protocol():
         return seq, ack, flags
 
     def send_data(self, data, window, addr):
-        print("Data transfer:")
+        print("Start sending data:")
         chunks = [data[i:i+CHUNK_SIZE] for i in range(0, len(data), CHUNK_SIZE)]
         packets_in_flight = 0
         sliding_window = deque()
@@ -37,7 +37,11 @@ class Protocol():
             while packets_in_flight < window and self.seq+packets_in_flight <= len(chunks):
                 chunk = chunks[self.seq-1 + packets_in_flight]
                 packet = self.create_packet(self.seq+packets_in_flight, self.ack, 4, chunk)
-                self.sock.sendto(packet, addr)
+                try:
+                    self.sock.sendto(packet, addr)
+                except Exception:
+                    print(f"{datetime.now().time()} -- Error sending packet with seq = {self.seq+packets_in_flight}. Retransmitting packet")
+                    continue
                 sliding_window.append(self.seq+packets_in_flight)
                 if len(sliding_window) > window: sliding_window.popleft()
                 print(f"{datetime.now().time()} -- packet with seq = {self.seq+packets_in_flight} sent, sliding window = {list(sliding_window)}")
@@ -50,85 +54,66 @@ class Protocol():
                     self.seq = ack
                     packets_in_flight -= 1
             except timeout:
-                print(f"Retransmission timeout. ACK not received.")
+                print(f"{datetime.now().time()} -- Retransmission timeout. ACK not received.")
                 packets_in_flight = 0
-        print("Data transfer finished")
+            except Exception as e:
+                print(f"{datetime.now().time()} -- Unexpected error when receiving ACK.")
+                packets_in_flight = 0
+        print("Finished sending data")
     
     def receive_data(self, addr, discard):
+        print("Start receiving data")
         start_time = time.time()
         self.sock.settimeout(None)
         data = b''
         bytes_received = b''
         while True:
-            packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)[0]
+            try:
+                packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)[0]
+            except Exception:
+                print(f"{datetime.now().time()} -- Unexpected error when receiving data. Trying again")
+                continue
             bytes_received += packet
             chunk = packet[HEADER_SIZE:]
             seq, ack, flags = self.extract_header(packet)
             if seq == discard:
                 discard = None
             elif flags == 4 and self.seq == ack and self.ack == seq and chunk:
-                print(f"{datetime.now().time()} -- packet with seq = {seq} received")
-                self.ack += 1
-                packet = self.create_packet(self.seq, self.ack, 4)
-                self.sock.sendto(packet, addr)
-                print(f"{datetime.now().time()} -- ACK for packet with seq = {seq} sent")
-                data += chunk
+                try:
+                    print(f"{datetime.now().time()} -- packet with seq = {seq} received")
+                    packet = self.create_packet(self.seq, self.ack+1, 4)
+                    self.sock.sendto(packet, addr)
+                    self.ack += 1
+                    print(f"{datetime.now().time()} -- ACK for packet with seq = {seq} sent")
+                    data += chunk
+                except Exception:
+                    print(f"{datetime.now().time()} -- Unexpected error when sending ACK for packet with seq = {seq}. Keep receiving data")
             elif flags == 6 and self.seq == ack and self.ack == seq:
-                time_elapsed = time.time() - start_time
-                print(f"Throughput: {self.calculate_throughput(bytes_received, time_elapsed)} Mbps")
-                self.ack = seq+1
-                self.__receiver_close_connection()
-                break
+                try:
+                    time_elapsed = time.time() - start_time
+                    print(f"Throughput: {self.calculate_throughput(bytes_received, time_elapsed)} Mbps")
+                    print("FIN packet received")
+                    packet = self.create_packet(self.seq, self.ack+1, 4)
+                    self.sock.sendto(packet, addr)
+                    print("ACK packet sent")
+                    self.ack += 1
+                    print("Connection closes")
+                    self.sock.close()
+                    return data
+                except Exception:
+                    print(f"{datetime.now().time()} -- Unexpected error when sending FIN ACK packet. Keep receiving data")
             elif flags == 4:
                 print(f"{datetime.now().time()} -- out-of-order packet with seq = {seq} received")
             
-        return data
     
     def close_connection(self):
         print("Connection teardown. Four way handshake")
         packet = self.create_packet(self.seq, self.ack, 6)
         while True:
-            self.sock.sendto(packet, self.server_addr)
-            print("FIN packet sent")
-            try:        
-                packet = self.sock.recvfrom(HEADER_SIZE)[0]
-                seq, ack, flags = self.extract_header(packet)
-                if flags == 4 and ack == self.seq+1 and self.ack == seq:
-                    print("ACK packet received")
-                    self.seq = ack
-                    break
-                else:
-                    break
-            except timeout:
-                print("ACK not received in time. Retransmitting packet")
-                continue
-        
-        while True:
-            packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive FIN-ACK
-            seq, ack, flags = self.extract_header(packet)
-            if flags == 6 and ack == self.seq and seq == self.ack:
-                print("FIN packet received")
-                self.ack = seq+1
-                packet = self.create_packet(self.seq, self.ack, 4)
-                self.sock.sendto(packet, self.server_addr) # Send ACK
-                print("ACK packet sent")
-                print("Connection closes")
-                self.sock.close()
-                break
-    
-    def __receiver_close_connection(self):
-        print("FIN packet received")
-        packet = self.create_packet(self.seq, self.ack, 4)
-        self.sock.sendto(packet, self.client_addr) # Send ACK
-        print("ACK packet sent")
-
-        self.sock.settimeout(TIMEOUT)
-        while True:
-            packet = self.create_packet(self.seq, self.ack, 6)
-            self.sock.sendto(packet, self.client_addr) # Send FIN-ACK
-            print("FIN packet sent")
             try:
-                packet = self.sock.recvfrom(HEADER_SIZE)[0] # Receive ACK
+                self.sock.sendto(packet, self.server_addr)
+                print("FIN packet sent")     
+                packet = self.sock.recvfrom(HEADER_SIZE)[0]
                 seq, ack, flags = self.extract_header(packet)
                 if flags == 4 and ack == self.seq+1 and self.ack == seq:
                     print("ACK packet received")
@@ -136,8 +121,9 @@ class Protocol():
                     print("Connection closes")
                     self.sock.close()
                     break
-                else:
-                    break
             except timeout:
-                print("Timeout. ACK packet not received in time")
-                continue    
+                print("Graceful connection teardown failed. ACK not received. Closing connection")
+                raise
+            except Exception as e:
+                print(f"Unexpected error occurred during connection teardown.")
+                raise

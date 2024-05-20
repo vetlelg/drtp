@@ -2,26 +2,46 @@ import argparse
 import ipaddress
 from server import Server
 from client import Client
+from socket import *
 
-def run_server(server_addr, file, window, discard=None):
-    server = Server(server_addr)
-    server.listen()
-    client_addr = server.accept()
+def run_server(server_addr, file, discard=None):
+    try:
+        server = Server(server_addr)
+        server.listen()
+        client_addr = server.accept()
+        data = server.receive_data(client_addr, discard)
+    
+        with open(file, 'wb') as f:
+            f.write(data)
 
-    data = server.receive_data(client_addr, discard)
-    with open(file, 'wb') as f:
-        f.write(data)
+    except FileNotFoundError:
+        print(f"File {file} not found.")
+    except IOError as e:
+        print(f"I/O error occurred when writing data to file: {e}")
+    except Exception as e:
+        print(f"Error occurred on the server: {e}")
+    finally:
+        server.sock.close()
 
 def run_client(server_addr, file, window):
-    client = Client(server_addr)
-    
-    client.connect()
+    try:
+        client = Client(server_addr)
+        client.connect()
 
-    with open(file, 'rb') as f:
-        data = f.read()
-        client.send_data(data, window, server_addr)
+        with open(file, 'rb') as f:
+            data = f.read()
+            client.send_data(data, window, server_addr)
 
-    client.close_connection()
+        client.close_connection()
+
+    except FileNotFoundError:
+        print(f"File {file} not found.")
+    except IOError as e:
+        print(f"I/O error occurred when reading data from file: {e}")
+    except Exception as e:
+        print(f"Error occurred on the client: {e}")
+    finally:
+        client.sock.close()
 
 if __name__ == "__main__":
     # Uses argparse to parse the arguments
@@ -55,6 +75,6 @@ if __name__ == "__main__":
     elif not (args.server or args.client):
         print('You have to enable either server or client mode')
     elif args.server:
-        run_server((args.ip, args.port), args.file, args.window, args.discard)
+        run_server((args.ip, args.port), args.file, args.discard)
     elif args.client:
         run_client((args.ip, args.port), args.file, args.window)
