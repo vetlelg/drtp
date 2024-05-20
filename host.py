@@ -3,9 +3,9 @@ from datetime import datetime
 import time
 from collections import deque
 
-CHUNK_SIZE = 994
-HEADER_SIZE = 6
-TIMEOUT = 0.5
+CHUNK_SIZE = 994 # Number of bytes for the payload in each packet
+HEADER_SIZE = 6  # Number of bytes for the header in each packet (2 bytes each for seq, ack and flags)
+TIMEOUT = 0.5    # Number of seconds the sender should wait for an ACK before it times out
 
 class Host():
     """
@@ -196,51 +196,110 @@ class Host():
         print("Finished sending data")
     
     def receive_data(self, addr, discard):
+        """
+        Receives data from the specified address, optionally discarding specified packets.
+        Receive data until the receiver receives a FIN packet from the sender.
+        Packets that are out of order will be discarded.
+
+        Parameters
+        ----------
+        addr : tuple
+            The sender IP and port number as a tuple
+        discard : int or None
+            The sequence number of a packet that should be discarded by the receiver
+
+        Returns
+        -------
+        bytes
+            The payload/chunks of data that has been sent from the sender
+        """
+
         print("Start receiving data")
+
+        # Used for calculating the total throughput
         start_time = time.time()
+
+        # Don't time out when receiving data. Receive data until 
         self.sock.settimeout(None)
+
+        # The return variable holding the data
         data = b''
+
+        # Used for calculating the total throughput
         bytes_received = b''
+
+        # Keep receiving data until a FIN packet has been received
         while True:
+
+            # Wait for packet from the sender and try again if any unexpected error occurs
             try:
                 packet = self.sock.recvfrom(HEADER_SIZE+CHUNK_SIZE)[0]
             except Exception:
                 print(f"{datetime.now().time()} -- Unexpected error when receiving data. Trying again")
                 continue
+
+            # Keep track of the total bytes received
             bytes_received += packet
+
+            # Extract payload and header from the packet
             chunk = packet[HEADER_SIZE:]
             seq, ack, flags = self.extract_header(packet)
+
+            # Discard packet with the given sequence number
             if seq == discard:
                 discard = None
+        
+            # If the received packet has expected header, is in order and contains data/payload
             elif flags == 4 and self.seq == ack and self.ack == seq and chunk:
+                # Try to send an ACK packet to the sender and keep receiving data if any unexpected error occurs
                 try:
                     print(f"{datetime.now().time()} -- packet with seq = {seq} received")
+
+                    # Create and send ACK packet
                     packet = self.create_packet(self.seq, self.ack+1, 4)
                     self.sock.sendto(packet, addr)
-                    self.ack += 1
                     print(f"{datetime.now().time()} -- ACK for packet with seq = {seq} sent")
+
+                    # Update seq number of next expected in-order packet if the ACK was sent without errors
+                    self.ack += 1 
+
+                    
                     data += chunk
                 except Exception:
                     print(f"{datetime.now().time()} -- Unexpected error when sending ACK for packet with seq = {seq}. Keep receiving data")
+
+            # If FIN packet was received
             elif flags == 6 and self.seq == ack and self.ack == seq:
+                # Try to send an ACK packet to the sender and keep receiving data if any unexpected error occurs
                 try:
+                    # Calculate and print throughput
                     time_elapsed = time.time() - start_time
                     print(f"Throughput: {self.calculate_throughput(bytes_received, time_elapsed)} Mbps")
+
                     print("FIN packet received")
+
+                    # Create and send ACK packet
                     packet = self.create_packet(self.seq, self.ack+1, 4)
                     self.sock.sendto(packet, addr)
                     print("ACK packet sent")
+
+                    # Update seq number of next expected in-order packet if the ACK was sent without errors
                     self.ack += 1
+
                     print("Connection closes")
                     self.sock.close()
+
                     return data
                 except Exception:
                     print(f"{datetime.now().time()} -- Unexpected error when sending FIN ACK packet. Keep receiving data")
+            
+            # Discard packet and keep receiving data if packet is out of order
             elif flags == 4:
                 print(f"{datetime.now().time()} -- out-of-order packet with seq = {seq} received")
             
     
     def close_connection(self):
+        
         print("Connection teardown. Two way handshake")
         packet = self.create_packet(self.seq, self.ack, 6)
         while True:
