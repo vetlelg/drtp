@@ -21,7 +21,8 @@ class Client(Protocol):
                     packet = self.create_packet(self.seq, self.ack, 4)
                     self.sock.sendto(packet, self.server_addr)
                     print("ACK packet sent")
-            except timeout:
+                    break
+            except timeout:    
                 print("Connection failed. SYN-ACK not received in time.")
                 raise
                     
