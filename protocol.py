@@ -107,7 +107,7 @@ class Protocol():
             
     
     def close_connection(self):
-        print("Connection teardown. Four way handshake")
+        print("Connection teardown. Two way handshake")
         packet = self.create_packet(self.seq, self.ack, 6)
         while True:
             try:
@@ -122,8 +122,8 @@ class Protocol():
                     self.sock.close()
                     break
             except timeout:
-                print("Graceful connection teardown failed. ACK not received. Closing connection")
-                raise
+                print("ACK not received in time. Resending FIN packet")
+                
             except Exception as e:
                 print(f"Unexpected error occurred during connection teardown.")
                 raise

@@ -14,10 +14,6 @@ def run_server(server_addr, file, discard=None):
         with open(file, 'wb') as f:
             f.write(data)
 
-    except FileNotFoundError:
-        print(f"File {file} not found.")
-    except IOError as e:
-        print(f"I/O error occurred when writing data to file: {e}")
     except Exception as e:
         print(f"Error occurred on the server: {e}")
     finally:
@@ -36,8 +32,6 @@ def run_client(server_addr, file, window):
 
     except FileNotFoundError:
         print(f"File {file} not found.")
-    except IOError as e:
-        print(f"I/O error occurred when reading data from file: {e}")
     except Exception as e:
         print(f"Error occurred on the client: {e}")
     finally:

@@ -23,10 +23,9 @@ class Client(Protocol):
                     print("ACK packet sent")
             except timeout:
                 if self.seq == 1:
-                    return
-                else:
                     print("Connection failed. SYN-ACK not received in time.")
                     raise
+                    
             except Exception as e:
                 print(f"Connection failed. Error occurred during three way handshake: {e}")
                 raise
