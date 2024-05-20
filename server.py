@@ -42,7 +42,8 @@ class Server(Protocol):
                     self.seq = ack
                     return self.client_addr
             except timeout:
-                print("ACK packet not received in time. Retransmitting SYN-ACK")
+                print("Connection failed. ACK packet not received in time.")
+                raise
             except Exception as e:
                 print(f"Connection failed. Error occurred during three way handshake: {e}")
                 raise
