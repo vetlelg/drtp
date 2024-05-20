@@ -5,36 +5,82 @@ from client import Client
 from socket import *
 
 def run_server(server_addr, file, discard=None):
-    try:
-        server = Server(server_addr)
-        server.listen()
-        client_addr = server.accept()
-        data = server.receive_data(client_addr, discard)
+    """
+    Start the server application
+
+    Parameters
+    ----------
+    server_addr : tuple (ip, port)
+        Server IP and port number as a tuple
+    file : str
+        Filepath or name of file
+    discard : int or None
+        The sequence number of a packet that should be discarded by the receiver
+    """
     
+    try:
+        # Create server object
+        server = Server(server_addr)
+
+        # Listen for connections. Receives SYN from client
+        server.listen()
+
+        # Continues three way handshake. Sends SYN-ACK and receives ACK from client
+        client_addr = server.accept()
+
+        # Start receiving data. Stop receiving when FIN is received from client
+        data = server.receive_data(client_addr, discard)
+
+        # Writes received data to file
         with open(file, 'wb') as f:
             f.write(data)
 
+    # Handle any exceptions that lower-level functions may raise
     except Exception as e:
         print(f"Error occurred on the server: {e}")
     finally:
+        # Clean up after the server is finished running
         server.sock.close()
 
 def run_client(server_addr, file, window):
+    """
+    Start the client application
+
+    Parameters
+    ----------
+    server_addr : tuple (ip, port)
+        Server IP and port number as a tuple
+    file : str
+        Filepath or name of file
+    window : int
+        Size of sliding window
+    """
+
     try:
+        # Create client object
         client = Client(server_addr)
+
+        # Initiate three way handshake / Connection establishment
+        # Sends SYN and receives SYN-ACK from server
         client.connect()
 
+        # Read file and start sending data
         with open(file, 'rb') as f:
             data = f.read()
             client.send_data(data, window, server_addr)
 
+        # Initiate two way handshake / Connection teardown
+        # Send FIN and receive ACK from server
         client.close_connection()
 
     except FileNotFoundError:
         print(f"File {file} not found.")
+
+    # Handle any exceptions that lower-level functions may raise
     except Exception as e:
         print(f"Error occurred on the client: {e}")
     finally:
+        # Clean up after the client is finished running
         client.sock.close()
 
 if __name__ == "__main__":

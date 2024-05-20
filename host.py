@@ -129,13 +129,6 @@ class Host():
             The window size. The number of packets that the sender can send before expecting an ACK packet from the receiver
         addr : tuple
             The receiver IP and port number as a tuple
-
-        Raises
-        ------
-        TimeoutError
-            If the sender has not received an ACK-packet from the receiver within TIMEOUT period
-        Exception
-            Deals with any unexpected exceptions that may occur when sending and receiving data over the network
         """
 
         print("Start sending data:")
@@ -299,24 +292,36 @@ class Host():
             
     
     def close_connection(self):
-        
+        """
+        Closes the connection with a two-way handshake.
+        Sends a FIN packet to the receiver and closes the connection if
+        the receiver returns an ACK packet.
+        """
+
         print("Connection teardown. Two way handshake")
-        packet = self.create_packet(self.seq, self.ack, 6)
+        
+        # Keep sending until an ACK packet has been returned
         while True:
             try:
+                # Create and send FIN packet
                 self.sock.sendto(packet, self.server_addr)
+                packet = self.create_packet(self.seq, self.ack, 6)
                 print("FIN packet sent")     
+                # Receive packet and extract header
                 packet = self.sock.recvfrom(HEADER_SIZE)[0]
                 seq, ack, flags = self.extract_header(packet)
+                # Check if it's the expected ACK packet
                 if flags == 4 and ack == self.seq+1 and self.ack == seq:
                     print("ACK packet received")
                     self.seq = ack
                     print("Connection closes")
                     self.sock.close()
                     break
+            # Resend FIN packet if no ACK packet was received
+            # Raise an exception if any other error occurs,
+            # for example if the receiver receives the FIN, but the returned ACK was lost
             except timeout:
-                print("ACK not received in time. Resending FIN packet")
-                
+                print("ACK not received in time. Resending FIN packet")   
             except Exception as e:
                 print(f"Unexpected error occurred during connection teardown.")
                 raise
