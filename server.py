@@ -1,6 +1,6 @@
-from protocol import *
+from host import *
 
-class Server(Protocol):
+class Server(Host):
     def __init__(self, server_addr):
         super().__init__(server_addr)
         self.client_addr = None

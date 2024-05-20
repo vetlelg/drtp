@@ -38,7 +38,7 @@ def run_client(server_addr, file, window):
         client.sock.close()
 
 if __name__ == "__main__":
-    # Uses argparse to parse the arguments
+    # Uses argparse to parse the arguments from the command line
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--server', help='Enable server mode', action='store_true')
     parser.add_argument('-c', '--client', help='Enable client mode', action='store_true')
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         except:
             return False
 
-    # Handles errors/exceptions
+    # Handles errors/exceptions for command line arguments
     if args.port not in range(1024, 65536):
         print('Invalid port. It must be within range [1024, 65535]')
     elif not valid_ip(args.ip):

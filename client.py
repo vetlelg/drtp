@@ -1,6 +1,9 @@
-from protocol import *
+from host import *
 
-class Client(Protocol):
+class Client(Host):
+    """
+    This class is used to represent the client. It is a subclass of Protocol
+    """
     def __init__(self, server_addr):
         super().__init__(server_addr)
         self.sock.settimeout(TIMEOUT)
