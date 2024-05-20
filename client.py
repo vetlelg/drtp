@@ -21,10 +21,12 @@ class Client(Protocol):
                     packet = self.create_packet(self.seq, self.ack, 4)
                     self.sock.sendto(packet, self.server_addr)
                     print("ACK packet sent")
-                    return
             except timeout:
-                print("Connection failed. SYN-ACK not received in time.")
-                raise
+                if self.seq == 1:
+                    return
+                else:
+                    print("Connection failed. SYN-ACK not received in time.")
+                    raise
             except Exception as e:
                 print(f"Connection failed. Error occurred during three way handshake: {e}")
                 raise
