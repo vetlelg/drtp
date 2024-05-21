@@ -10,8 +10,6 @@ The application can be run in either server mode or client mode. Below are the i
 
 #### Server Mode
 
-To start the server, use the `-s` or `--server` flag along with the required parameters.
-
 ```bash
 python application.py --server --port 8088 --ip 127.0.0.1 --file received_file.txt
 ```
@@ -28,8 +26,6 @@ python application.py --server --port 8088 --ip 127.0.0.1 --file received_file.t
 ```
 
 #### Client Mode
-
-To start the client, use the `-c` or `--client` flag along with the required parameters.
 
 ```bash
 python application.py --client --port 8088 --ip 127.0.0.1 --file send_file.txt --window 3
