@@ -1,4 +1,3 @@
-```markdown
 # Reliable File Transfer Application over UDP
 
 ## Introduction
