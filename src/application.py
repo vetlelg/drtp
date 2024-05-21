@@ -84,6 +84,8 @@ def run_client(server_addr, file, window):
         client.sock.close()
 
 if __name__ == "__main__":
+    # The following code for parsing arguments was used by me in the obligatory assignments earlier this year.
+    # See the citation list in the project report (Gundersen 2024)
     # Uses argparse to parse the arguments from the command line
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--server', help='Enable server mode', action='store_true')
