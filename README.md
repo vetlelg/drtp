@@ -1,15 +1,8 @@
-# Reliable File Transfer Application over UDP
+# DATA2410 Reliable Transport Protocol (DRTP)
 
 ## Introduction
 
-This project implements a reliable file transfer application using UDP as the underlying transport protocol. Despite UDP's inherent lack of reliability and connection management, this application ensures reliable data transmission by implementing a custom protocol on top of UDP. The key features include a three-way handshake for connection establishment, a Go-Back-N sliding window protocol for data transmission, and a two-way handshake for connection teardown.
-
-## Features
-
-- Three-way handshake for connection establishment
-- Go-Back-N sliding window protocol for reliable data transmission
-- Two-way handshake for connection termination
-- Command-line interface for easy configuration
+This project implements DATA2410 reliable transport protocol (DRTP) on top of the User Datagram Protocol (UDP) to create a simple reliable file transfer application in Python. The functionalities of the project include a three-way handshake for connection establishment, Go-Back-N sliding window protocol for data transmission and a two-way handshake for connection teardown. The application reads a file from the client, sends it over the network to the server and writes it to a file on the server. 
 
 ### Usage
 
@@ -66,7 +59,7 @@ python application.py --client --port 8088 --ip 127.0.0.1 --file send_file.txt -
 
 ## Code Structure
 
-- `application.py`: Entry point of the application, handles argument parsing and orchestrates server/client operations.
-- `host.py`: Defines the `Host` base class containing common functionalities for both client and server.
-- `client.py`: Implements the `Client` class for client-specific operations.
-- `server.py`: Implements the `Server` class for server-specific operations.
+- `application.py`: This includes the main function and uses the argparse library to parse command-line arguments to determine the sliding window size, file path/name, server IP-address, server port number and whether the application should run in server- or client-mode.
+- `host.py`: This file contains the Host class which is used as a base class for the server and the client. It includes key functionality like packet creation, header extraction, sending of data using the Go-Back-N protocol and connection teardown.
+- `client.py`: Thise file contains the Client class which inherits from the Host class and holds client-specific functionality like initiation the three-way handshake (Sending of SYN and receiving of SYN-ACK)
+- `server.py`: The Server class also inherits from the Host class and implements server-specific functions. It listens for incoming client-connections (SYN-packets) and completes the connection establishment with the client (Sending SYN-ACK and receiving ACK)

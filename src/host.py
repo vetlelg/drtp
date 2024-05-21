@@ -212,7 +212,7 @@ class Host():
         # Used for calculating the total throughput
         start_time = time.time()
 
-        # Don't time out when receiving data. Receive data until 
+        # Don't time out when receiving data. Receive data until FIN packet is received
         self.sock.settimeout(None)
 
         # The return variable holding the data
