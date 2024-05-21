@@ -10,24 +10,20 @@ The application can be run in either server mode or client mode. Below are the i
 
 #### Server Mode
 
-- `--server`: Enable server mode
-- `--port`: Specify the server port number (default: 8088)
-- `--ip`: Specify the server IP address (default: 127.0.0.1)
-- `--file`: Specify the filename to save the received data
+- `--server or -d`: Enable server mode
+- `--port or -p`: Specify the server port number (default: 8088)
+- `--ip or -i`: Specify the server IP address (default: 127.0.0.1)
+- `--file or -f`: Specify the filename to save the received data
 
-Optionally, you can use the `--discard` flag to specify a sequence number of a packet to be discarded by the server for testing retransmission.
-
-```bash
-python application.py --server --port 8088 --ip 127.0.0.1 --file received_file.txt --discard 5
-```
+Optionally, you can use the `--discard or -d` flag to specify a sequence number of a packet to be discarded by the server for testing retransmission.
 
 #### Client Mode
 
-- `--client`: Enable client mode
-- `--port`: Specify the server port number (default: 8088)
-- `--ip`: Specify the server IP address (default: 127.0.0.1)
-- `--file`: Specify the filename to be sent
-- `--window`: Set the sliding window size (default: 3)
+- `--client or -d`: Enable client mode
+- `--port or -p`: Specify the server port number (default: 8088)
+- `--ip or -p`: Specify the server IP address (default: 127.0.0.1)
+- `--file or -f`: Specify the filename to be sent
+- `--window or -w`: Set the sliding window size (default: 3)
 
 ### Example
 
