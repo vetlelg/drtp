@@ -10,10 +10,6 @@ The application can be run in either server mode or client mode. Below are the i
 
 #### Server Mode
 
-```bash
-python application.py --server --port 8088 --ip 127.0.0.1 --file received_file.txt
-```
-
 - `--server`: Enable server mode
 - `--port`: Specify the server port number (default: 8088)
 - `--ip`: Specify the server IP address (default: 127.0.0.1)
@@ -26,10 +22,6 @@ python application.py --server --port 8088 --ip 127.0.0.1 --file received_file.t
 ```
 
 #### Client Mode
-
-```bash
-python application.py --client --port 8088 --ip 127.0.0.1 --file send_file.txt --window 3
-```
 
 - `--client`: Enable client mode
 - `--port`: Specify the server port number (default: 8088)
