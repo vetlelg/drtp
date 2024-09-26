@@ -1,3 +1,4 @@
+Note: This project is excessively commented because it was a school project.
 # DATA2410 Reliable Transport Protocol (DRTP)
 
 ## Introduction
