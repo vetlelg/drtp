@@ -1,4 +1,4 @@
-name: CI
+name: CI and SonarCloud Analysis
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -16,17 +16,25 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.11"  # or whichever version you prefer
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
-          # If you have a requirements.txt, do:
+          pip install pytest coverage
+          # If you have a requirements.txt:
           # pip install -r requirements.txt
-          # Otherwise, just install pytest directly:
-          pip install pytest
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          # Make sure you're in the project root (the default from checkout action).
-          # Then run the tests:
-          python -m pytest --maxfail=1 --disable-warnings -v
+          coverage run -m pytest
+          coverage xml
+
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        with:
+          args: >
+            -Dsonar.projectKey=vetlelg_DATA2410-DRTP
+            -Dsonar.organization=vetlelg
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
