@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonarqube:
+    name: SonarQube
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Disabling shallow clone for best analysis results
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          # If you have a requirements.txt, you can do:
+          # pip install -r requirements.txt
+          # Otherwise, just install needed packages directly:
+          pip install pytest coverage
+
+      - name: Run tests with coverage
+        run: |
+          coverage run -m pytest
+          coverage xml
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.projectKey=vetlelg_DATA2410-DRTP
+            -Dsonar.organization=vetlelg
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+        env:
+          # Use the secret you stored in GitHub for your SonarCloud token
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
