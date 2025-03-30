@@ -1,4 +1,4 @@
-from socket import *
+from socket import AF_INET, SOCK_DGRAM, timeout, socket
 from datetime import datetime
 import time
 from collections import deque

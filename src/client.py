@@ -1,4 +1,5 @@
-from host import *
+from host import Host, HEADER_SIZE, TIMEOUT
+from socket import timeout
 
 class Client(Host):
     """
@@ -58,5 +59,5 @@ class Client(Host):
                 print("Connection failed. SYN-ACK not received in time.")
                 raise
             except Exception:
-                print(f"Connection failed. Error occurred during three way handshake.")
+                print("Connection failed. Error occurred during three way handshake.")
                 raise

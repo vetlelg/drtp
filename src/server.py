@@ -1,4 +1,5 @@
-from host import *
+from host import Host, HEADER_SIZE, TIMEOUT
+from socket import timeout
 
 class Server(Host):
     """

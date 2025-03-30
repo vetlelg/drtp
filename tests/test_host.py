@@ -1,5 +1,6 @@
 import pytest
 from src.host import Host, HEADER_SIZE
+import math
 
 def test_create_and_extract_packet():
     """
@@ -44,7 +45,10 @@ def test_calculate_throughput():
     
     # 1,000,000 bytes = 8,000,000 bits = 8 Mbps
     # Our function returns throughput in Mbps, with 2 decimals
-    assert throughput == 8.00
+    
+    # We check float values with math.isclose to avoid floating point precision issues
+    assert math.isclose(throughput, 8.00, rel_tol=1e-9, abs_tol=1e-9)
+
 
 
 def test_host_initialization():

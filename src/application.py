@@ -2,7 +2,6 @@ import argparse
 import ipaddress
 from server import Server
 from client import Client
-from socket import *
 
 def run_server(server_addr, file, discard=None):
     """
@@ -104,7 +103,7 @@ if __name__ == "__main__":
         try:
             ipaddress.IPv4Address(ip)
             return True
-        except:
+        except ipaddress.AddressValueError:
             return False
 
     # Handles errors/exceptions for command line arguments
